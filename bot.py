@@ -4,42 +4,47 @@ import struct
 import speech_recognition as sr
 import pyttsx3
 import webbrowser
+import os
 
-ACCESS_KEY = "nkTVaKlJG4CNYUBk6vISKHMz9c7+K8exB8V1WkgMs+jPEVCuPSNxgA=="
+from dotenv import load_dotenv
 
-# 🗣️ Text zu Sprache
-def sprechen(text):
+load_dotenv()
+ACCESS_KEY = os.getenv("ACCESS_KEY")
+
+# Text-to-speech Ausgaben
+def speak(text):
     engine = pyttsx3.init()
     engine.say(text)
     engine.runAndWait()
 
-# 🎛️ Befehle ausführen
-def befehl_verarbeiten(befehl):
-    if "öffne youtube" in befehl.lower():
-        sprechen("YouTube wird geöffnet")
+# Verarbeite Sprachbefehl
+def process_command(command):
+    if "öffne youtube" in command.lower():
+        speak("YouTube wird geöffnet.")
         webbrowser.open("https://youtube.com")
-    elif "stopp" in befehl.lower():
-        sprechen("Beende den Bot.")
+    elif "stopp" in command.lower():
+        speak("Der Assistent wird beendet.")
         exit()
     else:
-        sprechen("Befehl nicht erkannt.")
+        speak("Befehl nicht erkannt.")
 
-# 🎙️ Sprachbefehl aufnehmen nach Wakeword
-def sprache_zu_text(mikro_index):
+# Sprachaufnahme nach dem Wakeword
+def listen_for_command(mic_index):
     r = sr.Recognizer()
-    with sr.Microphone(device_index=mikro_index) as quelle:
+    with sr.Microphone(device_index=mic_index) as source:
         print("🎤 Sprich deinen Befehl...")
-        audio = r.listen(quelle)
+        audio = r.listen(source)
+        print("Rohbytes:", len(audio.frame_data))
         try:
             text = r.recognize_google(audio, language="de-DE")
             print("🗣️ Du hast gesagt:", text)
             return text
         except:
-            sprechen("Ich konnte dich nicht verstehen.")
+            speak("Ich konnte dich nicht verstehen.")
             return ""
 
-# 🎚️ Mikrofon-Auswahl anzeigen & abfragen
-def mikrofon_auswählen():
+# Mikrofon auswählen
+def select_microphone():
     pa = pyaudio.PyAudio()
     print("🔊 Verfügbare Mikrofone:")
     for i in range(pa.get_device_count()):
@@ -50,14 +55,14 @@ def mikrofon_auswählen():
 
     while True:
         try:
-            auswahl = int(input("🎙️ Wähle ein Mikrofon (Index eingeben): "))
-            return auswahl
+            selected = int(input("🎙️ Wähle ein Mikrofon (Index eingeben): "))
+            return selected
         except ValueError:
             print("❌ Bitte eine gültige Zahl eingeben.")
 
-# 🧠 Wakeword-Loop mit Porcupine starten
+# Wakeword-Loop starten
 def wakeword_loop():
-    mikro_index = mikrofon_auswählen()
+    mic_index = select_microphone()
 
     porcupine = pvporcupine.create(
         access_key=ACCESS_KEY,
@@ -70,11 +75,11 @@ def wakeword_loop():
         channels=1,
         format=pyaudio.paInt16,
         input=True,
-        input_device_index=mikro_index,
+        input_device_index=mic_index,
         frames_per_buffer=porcupine.frame_length
     )
 
-    print("👂 Warte auf Wakeword...")
+    print("Warte auf Wakeword...")
 
     try:
         while True:
@@ -84,20 +89,22 @@ def wakeword_loop():
             result = porcupine.process(pcm_unpacked)
             if result >= 0:
                 print("🎯 Wakeword erkannt!")
-                sprechen("Ich höre.")
-                befehl = sprache_zu_text(mikro_index)
-                if befehl:
-                    befehl_verarbeiten(befehl)
+                command = listen_for_command(mic_index)
+                if command:
+                    process_command(command)
 
     except KeyboardInterrupt:
-        print("🛑 Beendet")
+        print("🛑 Vom Benutzer beendet.")
 
     finally:
         stream.stop_stream()
         stream.close()
         pa.terminate()
         porcupine.delete()
+        
+# ------------
+# Startpunkt
+# ------------
 
-# ▶️ Start
 if __name__ == "__main__":
     wakeword_loop()
