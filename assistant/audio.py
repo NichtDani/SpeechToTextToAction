@@ -1,7 +1,6 @@
 # ---------------------------
 # assistant/audio.py
 # Audio input, wake‑word detection (Porcupine) and speech recognition.
-# Refactored: reuse Microphone instance, robust resource handling.
 # ---------------------------
 
 from __future__ import annotations
@@ -47,17 +46,12 @@ def select_microphone(index: int | None = None) -> int:
             print("❌  Ungültige Zahl.")
 
 
+#Context‑manager wrapper around Porcupine & PyAudio.
 class WakeListener(AbstractContextManager):
-    """
-    Context‑manager wrapper around Porcupine & PyAudio.
-    Keeps the stream open for the entire lifetime of the listener.
-    """
-
-    def __init__(self, mic_index: int, sensitivity: float = 0.5):
+    def __init__(self, mic_index: int):
         self.porcupine = pvporcupine.create(
             access_key=ACCESS_KEY,
             keywords=[WAKE_KEYWORD],
-            sensitivities=[sensitivity],
         )
         self.pa = pyaudio.PyAudio()
         self.stream = self.pa.open(
@@ -82,51 +76,36 @@ class WakeListener(AbstractContextManager):
         return self.porcupine.process(pcm_unpacked) >= 0
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        try:
-            self.stream.stop_stream()
-        except OSError:
-            log.warning("PyAudio stream already closed.")
-        finally:
-            self.stream.close()
-            self.pa.terminate()
-            self.porcupine.delete()
+        self.stream.stop_stream()
+        self.stream.close()
+        self.pa.terminate()
+        self.porcupine.delete()
 
 
 class SpeechRecognizer:
     def __init__(self, mic_index: int):
         self.recognizer = sr.Recognizer()
-        self.mic = sr.Microphone(device_index=mic_index)
-        # Optional: calibrate for ambient noise (0.5 s)
-        with self.mic as source:
-            self.recognizer.adjust_for_ambient_noise(source, duration=0.5)
+        self.mic_index = mic_index
 
-    # Record speech and return text; None if silence/timeout/unknown.
+# Record speech and return text; None if silence/timeout/unknown.
     def listen(
         self,
         timeout: int = LISTEN_TIMEOUT,
         phrase_limit: int = PHRASE_LIMIT,
     ) -> str | None:
         try:
-            with self.mic as source:
+            with sr.Microphone(device_index=self.mic_index) as source:
                 audio = self.recognizer.listen(
-                    source,
-                    timeout=timeout,
-                    phrase_time_limit=phrase_limit,
+                    source, timeout=timeout, phrase_time_limit=phrase_limit
                 )
         except sr.WaitTimeoutError:
             log.debug("Listen timeout (%s s) – no speech started", timeout)
-            return None
-        except OSError as e:
-            log.error("Microphone I/O error: %s", e)
             return None
 
         try:
             return self.recognizer.recognize_google(audio, language="de-DE")
         except sr.UnknownValueError:
-            log.debug("Speech unintelligible")
             return None
         except sr.RequestError as e:
-            # Network or API issue – escalate to caller
             log.error("Google STT error: %s", e)
             return None
-
