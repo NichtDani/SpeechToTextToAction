@@ -17,7 +17,7 @@ TTS_RATE: int = int(os.getenv("TTS_RATE", "180"))  # words per minute
 LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO").upper()
 
 # 🔊 Aufnahme-Parameter
-LISTEN_TIMEOUT: int = int(os.getenv("LISTEN_TIMEOUT", "3"))
+LISTEN_TIMEOUT: int = int(os.getenv("LISTEN_TIMEOUT", "5"))
 PHRASE_LIMIT: int = int(os.getenv("PHRASE_LIMIT", "8")) 
 
 if not ACCESS_KEY:

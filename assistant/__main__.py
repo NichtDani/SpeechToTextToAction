@@ -26,15 +26,16 @@ def main() -> None:
         while True:
             if wake.triggered():
                 log.info("Wakeword erkannt.")
+                wake.pause()               
                 speak("Ja?")
-                text = recognizer.listen()
+                text = recognizer.listen() 
+                wake.resume()
                 if text:
                     log.info("Erkannt: %s", text)
                     action = interpret(text)
                     execute(action)
                 else:
                     speak("Ich konnte dich nicht verstehen.")
-
 
 if __name__ == "__main__":
     try:

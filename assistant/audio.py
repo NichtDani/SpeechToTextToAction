@@ -63,6 +63,14 @@ class WakeListener(AbstractContextManager):
             frames_per_buffer=self.porcupine.frame_length,
         )
 
+    def pause(self):
+        if self.stream.is_active():
+            self.stream.stop_stream()
+
+    def resume(self):
+        if not self.stream.is_active():
+            self.stream.start_stream()
+    
     def __enter__(self) -> "WakeListener":
         return self
 

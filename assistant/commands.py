@@ -6,7 +6,6 @@
 import sys
 import webbrowser
 import logging
-from threading import Thread
 from .tts import speak
 
 log = logging.getLogger(__name__)
@@ -23,7 +22,7 @@ def interpret(text: str) -> str:
 
 def execute(action: str) -> None:
     if action == "OPEN_YOUTUBE":
-        Thread(target=speak, args=("YouTube wird geöffnet.",)).start()
+        speak("Youtube wird geöffnet.")
         webbrowser.open("https://youtube.com")
     elif action == "STOP":
         speak("Der Assistent wird beendet.")
